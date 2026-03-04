@@ -1,1 +1,0 @@
-"""Option Analyzer test suite."""
