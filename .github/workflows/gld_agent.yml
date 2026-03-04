@@ -1,12 +1,14 @@
 name: GLD LEAP Agent
 
 on:
-  # Run every 15 minutes — the time-check step below filters to
-  # Mon–Fri 8:30am–3:00pm CST (14:30–21:00 UTC) only.
   schedule:
-    - cron: "*/15 * * * *"
+    # Every 15 min: 8:30–9:45 AM CST (14:30–15:45 UTC), Mon–Fri
+    - cron: "30,45 14 * * 1-5"
+    - cron: "0,15,30,45 15 * * 1-5"
+    # Every hour: 10 AM–2 PM CST (16:00–20:00 UTC), Mon–Fri
+    - cron: "0 16,17,18,19,20 * * 1-5"
 
-  # Manual trigger for testing from the GitHub UI
+  # Manual trigger from the GitHub UI
   workflow_dispatch:
 
 permissions:
@@ -23,26 +25,14 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
     steps:
-      - name: Check trading hours (Mon–Fri 14:30–21:00 UTC)
+      - name: Check trading hours (Mon–Fri only)
         id: time_check
         run: |
-          HOUR=$(date -u +%H)
-          MINUTE=$(date -u +%M)
-          DOW=$(date -u +%u)        # 1=Mon … 7=Sun
-          TOTAL_MIN=$((HOUR * 60 + MINUTE))
+          DOW=$(date -u +%u)   # 1=Mon … 7=Sun
+          echo "UTC time: $(date -u +'%H:%M') (day $DOW)"
 
-          echo "UTC time: ${HOUR}:${MINUTE} (day $DOW, total_min=$TOTAL_MIN)"
-
-          # Mon=1 .. Fri=5 only
           if [ "$DOW" -gt 5 ]; then
             echo "Weekend — skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # 14:30 UTC = 870 min, 21:00 UTC = 1260 min
-          if [ "$TOTAL_MIN" -lt 870 ] || [ "$TOTAL_MIN" -ge 1260 ]; then
-            echo "Outside trading window — skipping."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi

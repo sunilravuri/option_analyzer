@@ -1,6 +1,6 @@
 # GLD LEAP Agent — Cost Estimate
 
-**Schedule:** Every 15 minutes, 8:30 AM–3:00 PM CST, Monday–Friday
+**Schedule:** Mon–Fri, every 15 min from 8:30–9:45 AM CST, then hourly from 10 AM–2 PM CST
 
 ## Per-Run Cost Breakdown
 
@@ -13,17 +13,23 @@
 
 ## Schedule Math
 
+| Window | Times (CST) | Runs/day |
+|---|---|---|
+| Every 15 min | 8:30, 8:45, 9:00, 9:15, 9:30, 9:45 AM | 6 |
+| Every 1 hour | 10 AM, 11 AM, 12 PM, 1 PM, 2 PM | 5 |
+| **Total** | | **11 runs/day** |
+
 | Period | Runs | Cost |
 |---|---|---|
-| Per day | 26 runs (6.5 hrs ÷ 15 min) | ~$3.90 |
-| Per week | 130 runs (26 × 5 days) | ~$19.50 |
-| Per month | 572 runs (~22 trading days) | ~$86 |
+| Per day | 11 runs | ~$1.65 |
+| Per week | 55 runs (11 × 5 days) | ~$8.25 |
+| Per month | 242 runs (~22 trading days) | ~$36 |
 
 ## Range
 
-**$75–$110/month** depending on:
+**$30–$45/month** depending on:
 - Web search count per run (up to 10 allowed; more on volatile/news-heavy days)
-- Occasional retry runs triggered by rate limit (unlikely at 15-min spacing)
+- Occasional retry runs triggered by rate limit
 
 ## Model Pricing Reference (claude-sonnet-4-6)
 
