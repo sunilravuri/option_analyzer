@@ -1,6 +1,6 @@
 # ⚡ GLD LEAP Option Agent
 
-[![GLD Agent](https://github.com/<owner>/option_analyzer/actions/workflows/gld_agent.yml/badge.svg)](https://github.com/<owner>/option_analyzer/actions/workflows/gld_agent.yml)
+[![GLD Agent](https://github.com/sunilravuri/option_analyzer/actions/workflows/gld_agent.yml/badge.svg)](https://github.com/sunilravuri/option_analyzer/actions/workflows/gld_agent.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An agentic trading system that uses **Claude claude-sonnet-4-6** with live web search to
@@ -77,7 +77,7 @@ option_analyzer/
 ### Installation
 
 ```bash
-git clone https://github.com/<owner>/option_analyzer.git
+git clone https://github.com/sunilravuri/option_analyzer.git
 cd option_analyzer
 
 python -m venv .venv
