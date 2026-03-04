@@ -144,6 +144,9 @@ def test_telegram_connection() -> bool:
 # CLI entry-point for testing
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
+    import sys
+    if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     _log("Running Telegram sender test...")
     success = test_telegram_connection()
     if success:

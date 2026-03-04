@@ -21,7 +21,7 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 MODEL = "claude-sonnet-4-6"
 MAX_RETRIES = 3
-RETRY_DELAY = 5  # seconds
+RETRY_DELAY = 60  # seconds — rate limit recovery
 
 SYSTEM_PROMPT = """You are an elite options trader and quantitative analyst.
 When given a task, use web search to find:
@@ -33,46 +33,25 @@ When given a task, use web search to find:
 - Latest CPI/PCE inflation data
 - Any major gold market news or central bank demand signals
 
-Then synthesize everything into a structured GLD LEAP option
+Then synthesize everything into a structured GLD LEAP call option
 recommendation with total premium budget of $6,500 max.
 
-Format your final output EXACTLY like this:
+IMPORTANT: Recommend a single GLD LEAP call option — NOT a spread.
+Do NOT suggest bull call spreads, bear spreads, or any multi-leg strategy.
+The recommendation must be a single long call option with expiry 12+ months out.
 
-📊 GLD LEAP ANALYSIS — [DATE] [TIME] CST
+Your FINAL response must contain ONLY the block below — no preamble, no data summaries, no reasoning, no notes, no extra lines. Output the block and nothing else:
+
+📊 GLD LEAP — [DATE] [TIME] CST
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💰 GLD PRICE: $[price]
+💰 GLD: $[price]
+🎯 Strike: $[strike] | Expiry: [date] | Cost: $[total] ([N] contract[s])
 
-📈 TECHNICAL BIAS: [BULLISH/BEARISH/NEUTRAL]
-• RSI(14): [value] — [interpretation]
-• MACD: [value] — [signal]
-• 50 SMA: $[value] | 200 SMA: $[value]
-• Bollinger Bands: [status]
-• ATR(14): $[value]
+📌 Rationale: [20–30 words on why this strike and expiry given current price, technicals, and macro]
 
-🌍 MACRO BIAS: [FAVORABLE/UNFAVORABLE/MIXED]
-• DXY: [value] — [trend]
-• Real Yield (10Y TIPS): [value]%
-• Fed Stance: [description]
-• Inflation (CPI/PCE): [latest reading]
-• Gold News: [1-2 sentence summary]
-
-✅ LEAP RECOMMENDATION
-• Type: GLD Call Option (or Bull Call Spread)
-• Strike: $[strike]
-• Expiry: [date — must be 12+ months out]
-• Est. Premium: $[amount] per contract
-• Max Cost: $[total] (within $6,500 budget)
-• Delta: ~[value]
-• Break-even at Expiry: $[price]
-• GLD Entry Zone: $[low]–$[high]
-
-🎯 PRICE TARGET (12–18 months): $[target]
-⚠️ STOP LOSS TRIGGER: GLD closes below $[level]
-📉 RISK: [1 sentence]
-📈 REWARD: [1 sentence]
-⚡ CONVICTION: [HIGH/MEDIUM/LOW]
+⚡ Conviction: [HIGH/MEDIUM/LOW] — [20–30 words explaining conviction level based on key supporting factors]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ Educational purposes only. Not financial advice."""
+⚠️ Educational only. Not financial advice."""
 
 USER_PROMPT = (
     "Perform a complete GLD LEAP option analysis right now using "
@@ -177,6 +156,16 @@ def _extract_text(response) -> str:
     result = "\n".join(text_parts).strip()
     if not result:
         raise ValueError("Agent returned empty analysis.")
+    # Strip any preamble before the formatted block
+    marker = "📊 GLD LEAP"
+    idx = result.find(marker)
+    if idx > 0:
+        result = result[idx:]
+    # Strip any trailing notes after the last separator line
+    end_marker = "⚠️ Educational only. Not financial advice."
+    end_idx = result.find(end_marker)
+    if end_idx != -1:
+        result = result[: end_idx + len(end_marker)]
     _log(f"Analysis complete ({len(result)} chars)")
     return result
 
@@ -185,6 +174,9 @@ def _extract_text(response) -> str:
 # CLI entry-point for quick testing
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
+    import sys
+    if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     _log("Starting GLD LEAP analysis (standalone)...")
     analysis = run_gld_analysis()
     print("\n" + "=" * 60)
