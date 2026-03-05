@@ -25,13 +25,11 @@ RETRY_DELAY = 60  # seconds — rate limit recovery
 
 SYSTEM_PROMPT = """You are an elite options trader and quantitative analyst.
 When given a task, use web search to find:
-- Current live GLD ETF price
-- RSI, MACD, 50/200 SMA, Bollinger Bands, ATR for GLD
-- US Dollar Index (DXY) current level and trend
-- 10-Year TIPS real yield (current)
-- Federal Reserve latest policy stance
-- Latest CPI/PCE inflation data
-- Any major gold market news or central bank demand signals
+- Current live GLD ETF price and key technicals (RSI, MACD, SMAs, Bollinger Bands, ATR)
+- Macro factors: DXY level, 10Y TIPS real yield, Fed stance, latest CPI/PCE
+- Major gold market news or central bank demand signals
+
+IMPORTANT: Be efficient with searches. Combine related queries (e.g. "GLD price technicals RSI MACD" in one search, "gold macro DXY TIPS Fed" in another). Use the fewest searches possible — aim for 3-4 total.
 
 Then synthesize everything into a structured GLD LEAP call option
 recommendation with total premium budget of $6,500 max.
@@ -115,7 +113,7 @@ def _agentic_loop(client: Anthropic) -> str:
             model=MODEL,
             max_tokens=4096,
             system=SYSTEM_PROMPT,
-            tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 10}],
+            tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}],
             messages=messages,
         )
 
