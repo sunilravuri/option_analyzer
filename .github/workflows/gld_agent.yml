@@ -1,14 +1,7 @@
 name: GLD LEAP Agent
 
 on:
-  schedule:
-    # Every 15 min: 8:30–9:45 AM CST (14:30–15:45 UTC), Mon–Fri
-    - cron: "30,45 14 * * 1-5"
-    - cron: "0,15,30,45 15 * * 1-5"
-    # Every hour: 10 AM–2 PM CST (16:00–20:00 UTC), Mon–Fri
-    - cron: "0 16,17,18,19,20 * * 1-5"
-
-  # Manual trigger from the GitHub UI
+  # Triggered externally via cron-job.org → GitHub API dispatch (more reliable than GitHub's native cron)
   workflow_dispatch:
 
 permissions:
