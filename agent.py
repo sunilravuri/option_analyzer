@@ -11,6 +11,7 @@ import os
 import time
 from datetime import datetime
 
+import yfinance as yf
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
@@ -70,6 +71,48 @@ Your FINAL response must contain ONLY the block below — no preamble, no data s
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ Educational only. Not financial advice."""
 
+def fetch_option_chain() -> str:
+    """
+    Fetch GLD call option chain for LEAP expirations via yfinance (15-min delayed).
+    Returns a formatted string of ITM strikes ($380-$470) across 12+-month expirations.
+    """
+    try:
+        gld = yf.Ticker("GLD")
+        spot = gld.fast_info.last_price
+        expirations = gld.options  # tuple of expiry strings "YYYY-MM-DD"
+
+        # Filter to expirations 12+ months out
+        today = datetime.utcnow().date()
+        from datetime import date, timedelta
+        cutoff = today + timedelta(days=365)
+        leap_expiries = [e for e in expirations if datetime.strptime(e, "%Y-%m-%d").date() >= cutoff]
+
+        if not leap_expiries:
+            return f"GLD spot: ${spot:.2f}\nNo LEAP expirations (12+ months) found in option chain."
+
+        rows = [f"GLD spot (delayed): ${spot:.2f}\n"]
+        for expiry in leap_expiries[:4]:  # cap at 4 expirations
+            chain = gld.option_chain(expiry)
+            calls = chain.calls
+            # Filter to ITM strikes $380-$470
+            itm = calls[(calls["strike"] >= 380) & (calls["strike"] <= 470)].copy()
+            if itm.empty:
+                rows.append(f"{expiry}: no calls in $380-$470 range\n")
+                continue
+            rows.append(f"{expiry}:")
+            for _, r in itm.iterrows():
+                bid = f"${r['bid']:.2f}" if r['bid'] > 0 else "N/A"
+                ask = f"${r['ask']:.2f}" if r['ask'] > 0 else "N/A"
+                iv = f"{r['impliedVolatility']*100:.1f}%" if r['impliedVolatility'] > 0 else "N/A"
+                delta = f"{r.get('delta', float('nan')):.2f}" if 'delta' in r and r['delta'] == r['delta'] else "N/A"
+                rows.append(f"  Strike ${r['strike']:.0f} | Bid {bid} | Ask {ask} | IV {iv} | Vol {int(r['volume']) if r['volume'] == r['volume'] else 0}")
+            rows.append("")
+
+        return "\n".join(rows)
+    except Exception as exc:
+        return f"yfinance fetch failed: {exc}"
+
+
 USER_PROMPT = (
     "Perform a complete GLD LEAP option analysis right now using "
     "live market data. Search for all required information."
@@ -124,7 +167,18 @@ def _agentic_loop(client: Anthropic) -> str:
     Core agentic loop: send messages, process tool calls, repeat until
     the model returns stop_reason == "end_turn".
     """
-    messages = [{"role": "user", "content": USER_PROMPT}]
+    _log("Fetching GLD option chain via yfinance...")
+    chain_data = fetch_option_chain()
+    _log(f"Option chain fetched ({len(chain_data)} chars)")
+
+    user_content = (
+        f"{USER_PROMPT}\n\n"
+        f"--- GLD OPTION CHAIN DATA (yfinance, 15-min delayed) ---\n"
+        f"{chain_data}\n"
+        f"--- Use the above real prices for your analysis. "
+        f"Only web search for macro/technical data you still need. ---"
+    )
+    messages = [{"role": "user", "content": user_content}]
 
     while True:
         _log("Calling Claude API...")
