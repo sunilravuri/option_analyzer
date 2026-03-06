@@ -56,9 +56,12 @@ IMPORTANT RULES:
 - Budget is strictly $6,500 maximum for one contract
 - Expiry must be 12+ months out
 - Be efficient: aim for 3–4 searches total, combine related queries
+- A good entry requires ALL of: ask ≤ $6,500, delta 0.70–0.85, % intrinsic ≥ 70%
+- If NO strike across ALL expirations meets these criteria within budget, output the WAIT block instead
 
-Your FINAL response must contain ONLY the block below — no preamble, no data summaries, no reasoning, no notes, no extra lines. Output the block and nothing else. Total word count must be under 60 words:
+Your FINAL response must contain ONLY one of the two blocks below — no preamble, no summaries, no reasoning, no extra lines:
 
+IF a good entry exists:
 📊 GLD LEAP — [DATE] [TIME] CST
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💰 GLD: $[price]
@@ -68,6 +71,18 @@ Your FINAL response must contain ONLY the block below — no preamble, no data s
 📌 Rationale: [10–15 words max on why this strike/expiry beats alternatives]
 
 ⚡ Conviction: [HIGH/MEDIUM/LOW] — [10–15 words max on key factor]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ Educational only. Not financial advice.
+
+IF no good entry exists within $6,500 budget:
+📊 GLD LEAP — [DATE] [TIME] CST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 GLD: $[price]
+⏳ No good entry within $6,500 budget right now.
+
+📌 Why: [10–15 words — e.g. premiums too high, delta too low, intrinsic % too low]
+
+🕐 Watch for: [10–15 words on what price level or condition would unlock a good entry]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ Educational only. Not financial advice."""
 
