@@ -28,8 +28,10 @@ When given a task, use web search to find:
 - Current live GLD ETF price and key technicals (RSI, MACD, SMAs, Bollinger Bands, ATR)
 - Macro factors: DXY level, 10Y TIPS real yield, Fed stance, latest CPI/PCE
 - Major gold market news or central bank demand signals
+- Current live GLD LEAP call option chain: search for "GLD call options chain ask price 2026 2027" to get the actual current market ask/premium prices for strikes 12+ months out
 
 IMPORTANT: Be efficient with searches. Combine related queries (e.g. "GLD price technicals RSI MACD" in one search, "gold macro DXY TIPS Fed" in another). Use the fewest searches possible — aim for 3-4 total.
+IMPORTANT: The Cost in your recommendation MUST be based on the current live market ask price from the option chain — do NOT estimate or calculate theoretically. Always search for the actual current premium before recommending.
 
 Then synthesize everything into a structured GLD LEAP call option
 recommendation with total premium budget of $6,500 max.
