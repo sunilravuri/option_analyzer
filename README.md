@@ -3,74 +3,76 @@
 [![GLD Agent](https://github.com/sunilravuri/option_analyzer/actions/workflows/gld_agent.yml/badge.svg)](https://github.com/sunilravuri/option_analyzer/actions/workflows/gld_agent.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An agentic trading system that uses **Claude claude-sonnet-4-6** with live web search to
-analyze GLD (Gold ETF) LEAP options and deliver structured recommendations
-via **Telegram** — scheduled automatically through **GitHub Actions**.
+An agentic trading system that runs a **7-prompt analysis framework** using Claude AI with live web search to analyze GLD (Gold ETF) LEAP options and deliver concise recommendations via **Telegram** — scheduled automatically through **cron-job.org → GitHub Actions**.
 
 ---
 
 ## System Architecture
 
 ```
-GitHub Actions (Free Scheduler)
-  ↓ triggers every 15 min, Mon–Fri only
-Claude Code Agent (claude-sonnet-4-6 + web_search)
-  ↓ runs agentic loop with tools
-  Tool 1: web_search → Live GLD price
-  Tool 2: web_search → RSI, MACD, SMA, Bollinger Bands, ATR
-  Tool 3: web_search → DXY, TIPS yield, Fed policy, CPI/PCE
-  Tool 4: web_search → Gold news & central bank demand
-  ↓ synthesizes into LEAP recommendation
-Telegram Bot
-  ↓ delivers formatted analysis to your channel
-  YOU receive the report ✅
+cron-job.org (external scheduler)
+  ↓ POST to GitHub API (workflow_dispatch)
+  ↓ run_type=full (8:30 AM CST) or run_type=intraday (hourly)
+
+GitHub Actions
+  ↓ python agent.py full | intraday
+
+7-Prompt Analysis Framework
+  Prompt 1 (Haiku)  → IV & Options Chain Analysis    [full only]
+  Prompt 2 (Haiku)  → IV Entry Timing Gate            [full only]
+  Prompt 3 (Sonnet) → News Sentiment                  [always]
+  Prompt 4 (Haiku)  → Event Risk Calendar             [full only]
+  Prompt 5 (Sonnet) → ETF Fundamental Scorecard       [full only]
+  Prompt 6 (Haiku)  → Strike & Expiry Optimizer       [full only]
+  Prompt 7 (Sonnet) → Master Synthesis                [always]
+  ↓
+yfinance → Live GLD option chain (real bid/ask prices)
+  ↓
+Telegram Bot → concise recommendation to your channel
 ```
 
 | Detail | Value |
 |--------|-------|
-| 📅 Schedule | Mon–Fri 8:30 AM – 3:00 PM CST |
-| ⏱ Frequency | Every 15 minutes |
-| 💬 Delivery | Telegram |
-| ☁️ Host | GitHub Actions |
-| 💰 Cost | ~$8–15/month |
+| 📅 Schedule | Mon–Fri, full at 8:30 AM CST + hourly intraday 9:30 AM–2:30 PM CST |
+| 💬 Delivery | Telegram (plain text) |
+| ☁️ Host | GitHub Actions (triggered via cron-job.org) |
+| 💰 API Cost | ~$3.10/month |
+
+---
 
 ## Cost Breakdown
 
 | Component | Cost | Notes |
 |-----------|------|-------|
-| GitHub Actions | **FREE** | 2,000 free min/month — uses ~130 min/month |
-| Claude API | **~$8–15/mo** | 26 runs/day × 21 trading days, ~1,000 tokens/run |
+| GitHub Actions | **FREE** | 2,000 free min/month |
+| Claude API | **~$3.10/mo** | Haiku for light prompts, Sonnet for synthesis + prompt caching |
 | Telegram Bot | **FREE** | BotFather creates a free bot instantly |
+| cron-job.org | **FREE** | External scheduler for reliable triggering |
+
+---
 
 ## Project Structure
 
 ```
 option_analyzer/
-├── agent.py               # Core Claude AI agent with web_search tool
-├── telegram_sender.py     # Telegram bot message formatter & sender
-├── scheduler.py           # Local test scheduler (every 15 min)
-├── requirements.txt       # Pinned dependencies
+├── agent.py               # 7-prompt analysis agent with model routing & prompt caching
+├── telegram_sender.py     # Telegram bot sender (plain text)
+├── requirements.txt       # Dependencies
+├── CLAUDE.md              # Implementation spec for Claude Code
 ├── .env.example           # Template for environment variables
-├── .gitignore
 ├── .github/
-│   ├── workflows/
-│   │   └── gld_agent.yml  # GitHub Actions cron schedule
-│   ├── ISSUE_TEMPLATE/    # Bug report & feature request forms
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── dependabot.yml
-├── README.md
-├── LICENSE
-├── CONTRIBUTING.md
-├── CODE_OF_CONDUCT.md
-├── CHANGELOG.md
-└── SECURITY.md
+│   └── workflows/
+│       └── gld_agent.yml  # workflow_dispatch only (triggered by cron-job.org)
+└── README.md
 ```
+
+---
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - [Anthropic API key](https://console.anthropic.com)
 - Telegram Bot Token & Chat ID (see [Telegram Setup](#telegram-bot-setup))
 
@@ -87,40 +89,27 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### Configure Secrets
+### Configure Environment
 
 ```bash
 cp .env.example .env
-# Edit .env with your actual keys:
+# Edit .env:
 #   ANTHROPIC_API_KEY=sk-ant-...
 #   TELEGRAM_BOT_TOKEN=...
 #   TELEGRAM_CHAT_ID=...
 ```
 
-### Test Telegram Connection
+### Run Locally
 
 ```bash
-python telegram_sender.py
+# Full run (all 7 prompts — use at market open)
+python agent.py full
+
+# Intraday run (news + synthesis only)
+python agent.py intraday
 ```
 
-### Run a Local Analysis
-
-```bash
-python -c "
-from agent import run_gld_analysis
-from telegram_sender import send_to_telegram
-
-analysis = run_gld_analysis()
-send_to_telegram(analysis)
-print('Done.')
-"
-```
-
-### Local Scheduler (every 15 min)
-
-```bash
-python scheduler.py
-```
+---
 
 ## Deploy to GitHub Actions
 
@@ -130,60 +119,72 @@ python scheduler.py
    | Secret | Where to Get It |
    |--------|----------------|
    | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) → API Keys |
-   | `TELEGRAM_BOT_TOKEN` | Telegram → @BotFather → `/newbot` → copy token |
-   | `TELEGRAM_CHAT_ID` | Message your bot, then visit `api.telegram.org/bot<TOKEN>/getUpdates` |
+   | `TELEGRAM_BOT_TOKEN` | Telegram → @BotFather → `/newbot` |
+   | `TELEGRAM_CHAT_ID` | `api.telegram.org/bot<TOKEN>/getUpdates` → find `chat.id` |
 
-3. To test immediately: **Actions → GLD LEAP Agent → Run workflow**.
-4. The cron schedule will handle the rest automatically.
+3. To test: **Actions → GLD LEAP Agent → Run workflow** → set `run_type=full`.
+
+---
+
+## cron-job.org Setup
+
+Create two jobs at [console.cron-job.org](https://console.cron-job.org):
+
+**Job 1 — Full run (market open)**
+
+| Field | Value |
+|-------|-------|
+| Schedule | `30 14 * * 1-5` (8:30 AM CST = 14:30 UTC, Mon–Fri) |
+| URL | `https://api.github.com/repos/sunilravuri/option_analyzer/actions/workflows/gld_agent.yml/dispatches` |
+| Method | `POST` |
+| Header | `Authorization: Bearer YOUR_GITHUB_PAT` |
+| Header | `Accept: application/vnd.github+json` |
+| Body | `{"ref":"main","inputs":{"run_type":"full"}}` |
+
+**Job 2 — Intraday runs (hourly)**
+
+| Field | Value |
+|-------|-------|
+| Schedule | `30 15-20 * * 1-5` (9:30 AM–2:30 PM CST, Mon–Fri) |
+| URL | same as above |
+| Method | `POST` |
+| Headers | same as above |
+| Body | `{"ref":"main","inputs":{"run_type":"intraday"}}` |
+
+> The GitHub PAT needs `repo` or `actions:write` scope.
+
+---
 
 ## Telegram Bot Setup
 
 1. Open Telegram → search **@BotFather** → tap "Start"
-2. Send `/newbot`, give it a name (e.g. "GLD LEAP Analyst") and username (e.g. `gld_leap_bot`)
+2. Send `/newbot`, give it a name and username
 3. Copy the **BOT_TOKEN** BotFather gives you
-4. Search for your bot in Telegram and send it any message (e.g. "hello")
+4. Send your bot any message (e.g. "hello")
 5. Visit `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`
 6. Find `"chat":{"id": 123456789}` — that number is your **CHAT_ID**
+
+---
 
 ## Sample Output
 
 ```
-📊 GLD LEAP ANALYSIS — 2026-03-04 10:30 CST
+📊 GLD LEAP — 2026-03-16 11:50 CST
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💰 GLD PRICE: $245.67
+💰 GLD: $458.46 | Tech: NEUTRAL | Macro: FAVORABLE | IV: FAIR
 
-📈 TECHNICAL BIAS: BULLISH
-• RSI(14): 58.3 — Neutral-to-bullish
-• MACD: +1.2 — Bullish crossover
-• 50 SMA: $240.15 | 200 SMA: $228.90
-• Bollinger Bands: Trading near upper band
-• ATR(14): $3.45
+✅ GO RECOMMENDATION
+Strike: $460 | Expiry: Mar 2027 | Ask: $57.80/share → $5,780/contract
+Contracts: 1 | Break-even: $517.80 | Delta: ~0.52
 
-🌍 MACRO BIAS: FAVORABLE
-• DXY: 103.2 — Weakening trend
-• Real Yield (10Y TIPS): 1.85%
-• Fed Stance: Holding, dovish lean
-• Inflation (CPI/PCE): CPI 3.1% YoY
-• Gold News: Central banks continue accumulation
-
-✅ LEAP RECOMMENDATION
-• Type: GLD Call Option
-• Strike: $250
-• Expiry: June 2027
-• Est. Premium: $18.50 per contract
-• Max Cost: $1,850 (within $6,500 budget)
-• Delta: ~0.45
-• Break-even at Expiry: $268.50
-• GLD Entry Zone: $243–$248
-
-🎯 PRICE TARGET (12–18 months): $280
-⚠️ STOP LOSS TRIGGER: GLD closes below $225
-📉 RISK: Premium loss if gold stagnates below strike
-📈 REWARD: 3:1 risk/reward with macro tailwinds
-⚡ CONVICTION: HIGH
+📌 Why: Highest volume, ATM delta, 13-month runway, dollar weakness tailwind
+⚡ Conviction: MEDIUM (6/10) — FOMC overhang resolved post March 18-19
+🎯 Target: $520 | 🛑 Stop: GLD < $435
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ Educational purposes only. Not financial advice.
+⚠️ Educational only. Not financial advice.
 ```
+
+---
 
 ## Contributing
 
