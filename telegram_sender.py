@@ -81,7 +81,7 @@ def _split_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> list[str]
 
 def send_to_telegram(message: str) -> bool:
     """
-    Send an analysis report to Telegram.
+    Send an analysis report to Telegram as plain text.
 
     Args:
         message: The report text to send.
@@ -96,8 +96,7 @@ def send_to_telegram(message: str) -> bool:
         return False
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    html_message = _markdown_to_html(message)
-    chunks = _split_message(html_message)
+    chunks = _split_message(message)
 
     _log(f"Sending {len(chunks)} message(s) to Telegram...")
     all_ok = True
@@ -106,7 +105,8 @@ def send_to_telegram(message: str) -> bool:
         payload = {
             "chat_id": chat_id,
             "text": chunk,
-            "parse_mode": "HTML",
+            # No parse_mode — send as plain text to avoid parse errors
+            # with Unicode symbols like •, ━, ✅, ⚠️, etc.
         }
         try:
             resp = requests.post(url, json=payload, timeout=30)

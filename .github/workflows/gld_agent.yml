@@ -1,8 +1,16 @@
 name: GLD LEAP Agent
 
 on:
-  # Triggered externally via cron-job.org → GitHub API dispatch (more reliable than GitHub's native cron)
+  # Triggered externally via cron-job.org → GitHub API dispatch
+  # Set up two jobs on cron-job.org:
+  #   Full run:     POST run_type=full     at 8:30 AM CST (14:30 UTC), Mon–Fri
+  #   Intraday run: POST run_type=intraday at 9:30–2:00 PM CST (15:30–20:00 UTC), Mon–Fri
   workflow_dispatch:
+    inputs:
+      run_type:
+        description: 'Run type: full or intraday'
+        required: true
+        default: 'full'
 
 permissions:
   contents: read
@@ -10,7 +18,7 @@ permissions:
 jobs:
   run-agent:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -18,45 +26,18 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
     steps:
-      - name: Check trading hours (Mon–Fri only)
-        id: time_check
-        run: |
-          DOW=$(date -u +%u)   # 1=Mon … 7=Sun
-          echo "UTC time: $(date -u +'%H:%M') (day $DOW)"
-
-          if [ "$DOW" -gt 5 ]; then
-            echo "Weekend — skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "Within trading hours ✅"
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-
       - name: Checkout repository
-        if: steps.time_check.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python 3.11
-        if: steps.time_check.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
       - name: Install dependencies
-        if: steps.time_check.outputs.skip != 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run GLD LEAP Agent
-        if: steps.time_check.outputs.skip != 'true'
-        run: |
-          python -c "
-          from agent import run_gld_analysis
-          from telegram_sender import send_to_telegram
-
-          analysis = run_gld_analysis()
-          send_to_telegram(analysis)
-          print('Done.')
-          "
+        run: python agent.py ${{ github.event.inputs.run_type }}
