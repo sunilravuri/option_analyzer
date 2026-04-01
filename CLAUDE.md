@@ -6,7 +6,7 @@ This is a GLD LEAP options analysis agent that:
 - Runs on GitHub Actions (Mon–Fri, every 15 min, 8:30 AM – 3:00 PM CST)
 - Uses the Anthropic API (`claude-sonnet-4-6`) with web_search tool
 - Delivers structured recommendations to a Telegram channel
-- Files: `agent.py`, `telegram_sender.py`, `scheduler.py`, `.github/workflows/gld_agent.yml`
+- Files: `agent.py`, `tv_analysis.py`, `telegram_sender.py`, `scheduler.py`, `.github/workflows/gld_agent.yml`
 
 ---
 
@@ -426,6 +426,7 @@ Ensure the following are present with minimum versions:
 anthropic>=0.40.0
 requests>=2.31.0
 python-dotenv>=1.0.0
+git+https://github.com/rongardF/tvdatafeed.git
 ```
 
 ---

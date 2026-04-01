@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 import yfinance as yf
 import anthropic
 from dotenv import load_dotenv
+from tv_analysis import get_tv_analysis
 
 load_dotenv()
 
@@ -34,7 +35,7 @@ RETRY_DELAY = 60  # seconds — rate limit recovery
 # "intraday" → news + synthesis only (hourly runs)
 RUN_TYPE = sys.argv[1] if len(sys.argv) > 1 else "full"
 
-WEB_SEARCH_TOOL = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}]
+WEB_SEARCH_TOOL = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 2}]
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -96,6 +97,13 @@ def _call_api(
         kwargs["tools"] = WEB_SEARCH_TOOL
 
     response = client.messages.create(**kwargs)
+    u = response.usage
+    cache_read = getattr(u, "cache_read_input_tokens", 0) or 0
+    cache_write = getattr(u, "cache_creation_input_tokens", 0) or 0
+    _log(
+        f"  tokens in={u.input_tokens} (cache_write={cache_write} cache_read={cache_read}) "
+        f"out={u.output_tokens} model={model.split('-')[1]}"
+    )
     result = _extract_text(response)
     if not result:
         raise ValueError("API returned empty response.")
@@ -208,7 +216,8 @@ Analyze:
 6. Identify top 3 strike/expiry combos for a long LEAP call (delta ~0.70–0.80 ITM, ~0.50 ATM), ranked by cost-efficiency
 
 Output: table of top 3 candidates with strike, expiry, IV, delta, estimated cost, and one-line reasoning. Plain text only, no markdown tables."""
-    return _retry(lambda: _call_api(client, MODEL_LIGHT, _SYS_OPTIONS, user))
+    # No web search — yfinance chain data is already provided above
+    return _retry(lambda: _call_api(client, MODEL_LIGHT, _SYS_OPTIONS, user, use_search=False, max_tokens=500))
 
 
 def run_iv_timing_prompt(client: anthropic.Anthropic) -> str:
@@ -225,7 +234,7 @@ Then answer:
 
 Final output must be one of: ✅ BUY NOW / ⚠️ WAIT / ❌ AVOID
 with a single sentence reason. Plain text only."""
-    return _retry(lambda: _call_api(client, MODEL_LIGHT, _SYS_OPTIONS, user))
+    return _retry(lambda: _call_api(client, MODEL_LIGHT, _SYS_OPTIONS, user, max_tokens=350))
 
 
 def run_news_sentiment_prompt(client: anthropic.Anthropic) -> str:
@@ -245,7 +254,7 @@ Then provide:
 - #1 catalyst that could accelerate a bullish move
 
 Plain text only."""
-    return _retry(lambda: _call_api(client, MODEL_HEAVY, _SYS_MACRO, user))
+    return _retry(lambda: _call_api(client, MODEL_HEAVY, _SYS_MACRO, user, max_tokens=600))
 
 
 def run_event_calendar_prompt(client: anthropic.Anthropic) -> str:
@@ -265,13 +274,16 @@ For each event:
 - LEAP implication: enter before / after / avoid
 
 Today's date: {today}. Plain text only."""
-    return _retry(lambda: _call_api(client, MODEL_LIGHT, _SYS_MACRO, user))
+    return _retry(lambda: _call_api(client, MODEL_LIGHT, _SYS_MACRO, user, max_tokens=500))
 
 
-def run_fundamentals_prompt(client: anthropic.Anthropic) -> str:
+def run_fundamentals_prompt(client: anthropic.Anthropic, tv_data: str) -> str:
     """Prompt 5 — ETF Fundamental Scorecard (MODEL_HEAVY)."""
     _log("Prompt 5: ETF Fundamental Scorecard...")
-    user = """Analyze GLD as a LEAP candidate:
+    user = f"""Analyze GLD as a LEAP candidate:
+
+TRADINGVIEW TECHNICAL DATA:
+{tv_data}
 
 STRUCTURE:
 - Current AUM, average daily options volume, typical bid/ask spread quality
@@ -294,7 +306,8 @@ Rate GLD 1–10 for LEAP buying today.
 Scoring factors: IV environment (25%), trend (25%), macro (25%), liquidity (25%)
 
 Plain text only."""
-    return _retry(lambda: _call_api(client, MODEL_HEAVY, _SYS_QUANT, user))
+    # No web search — TradingView data already provides full technical picture
+    return _retry(lambda: _call_api(client, MODEL_HEAVY, _SYS_QUANT, user, use_search=False, max_tokens=600))
 
 
 def run_strike_optimizer_prompt(client: anthropic.Anthropic, chain_data: str) -> str:
@@ -328,7 +341,8 @@ Recommend the best strike for risk-adjusted return.
 Also suggest a roll strategy: when/how to roll if the position moves against me by 20%.
 
 Plain text only."""
-    return _retry(lambda: _call_api(client, MODEL_LIGHT, _SYS_OPTIONS, user))
+    # No web search — real ask prices already provided from yfinance chain
+    return _retry(lambda: _call_api(client, MODEL_LIGHT, _SYS_OPTIONS, user, use_search=False, max_tokens=600))
 
 
 def run_master_synthesis_prompt(client: anthropic.Anthropic, results: dict) -> str:
@@ -352,19 +366,14 @@ def run_master_synthesis_prompt(client: anthropic.Anthropic, results: dict) -> s
         if is_intraday else ""
     )
 
-    chain_section = (
-        f"\nLIVE OPTION CHAIN (ground truth — use these real ask prices for Est. Premium and Contracts fields):\n{chain_data}\n"
-        if chain_data else ""
-    )
-
     user = f"""Synthesize the following analysis results and deliver a final LEAP recommendation:{intraday_note}
-{chain_section}
 <iv_analysis>{iv_chain}</iv_analysis>
 <iv_timing>{iv_timing}</iv_timing>
 <news_sentiment>{news}</news_sentiment>
 <event_calendar>{events}</event_calendar>
 <fundamentals>{fundamentals}</fundamentals>
 <strike_analysis>{strikes}</strike_analysis>
+<tradingview_technicals>{results.get("tv_data", "N/A")}</tradingview_technicals>
 
 MY CONSTRAINTS:
 - Budget: $6,500 max per contract (ask × 100 ≤ $6,500, meaning ask ≤ $65.00/share)
@@ -405,7 +414,7 @@ IF no strike fits within $6,500 budget (ask × 100 > $6,500 for all expirations)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ Educational only. Not financial advice."""
 
-    return _retry(lambda: _call_api(client, MODEL_HEAVY, _SYS_SYNTHESIS, user, use_search=False, max_tokens=3000))
+    return _retry(lambda: _call_api(client, MODEL_HEAVY, _SYS_SYNTHESIS, user, use_search=False, max_tokens=900))
 
 
 # ---------------------------------------------------------------------------
@@ -424,8 +433,12 @@ def run_gld_analysis() -> str:
     client = _get_client()
     results = {}
 
-    # Always run: news sentiment
+    # Always run: news sentiment and technicals
     results["news"] = run_news_sentiment_prompt(client)
+    
+    _log("Fetching TradingView technical analysis...")
+    results["tv_data"] = get_tv_analysis(interval="1h" if RUN_TYPE == "intraday" else "1d")
+    _log("TradingView analysis fetched.")
 
     if RUN_TYPE == "full":
         _log("Fetching GLD option chain via yfinance...")
@@ -436,7 +449,7 @@ def run_gld_analysis() -> str:
         results["iv_chain"] = run_iv_chain_prompt(client, chain_data)
         results["iv_timing"] = run_iv_timing_prompt(client)
         results["events"] = run_event_calendar_prompt(client)
-        results["fundamentals"] = run_fundamentals_prompt(client)
+        results["fundamentals"] = run_fundamentals_prompt(client, results["tv_data"])
         results["strikes"] = run_strike_optimizer_prompt(client, chain_data)
 
     # Always run: master synthesis
